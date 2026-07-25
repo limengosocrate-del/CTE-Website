@@ -26,46 +26,44 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: angularfire-start/package-lock.json
+          node-version: 22
 
-      - name: Install dependencies
+      - name: Installer les dépendances
         working-directory: angularfire-start
-        run: npm ci
+        run: npm install
 
-      - name: Build Angular
+      - name: Compiler Angular
         working-directory: angularfire-start
         run: npm run build -- --base-href=/CTE-Website/
 
-      - name: Find Angular build output
+      - name: Vérifier le résultat du build
         run: |
-          echo "Contenu de angularfire-start/dist :"
-          find angularfire-start/dist -maxdepth 3 -type f | head -100
+          echo "Recherche du fichier index.html..."
+          find angularfire-start/dist -name index.html -type f
 
-      - name: Prepare GitHub Pages
+      - name: Préparer GitHub Pages
         run: |
           BUILD_DIR=$(find angularfire-start/dist -name index.html -type f | head -1 | xargs dirname)
 
           if [ -z "$BUILD_DIR" ]; then
-            echo "ERREUR : index.html introuvable dans le dossier dist"
+            echo "ERREUR : index.html introuvable."
             exit 1
           fi
 
-          echo "Application trouvée dans : $BUILD_DIR"
+          echo "Application Angular trouvée dans : $BUILD_DIR"
 
           touch "$BUILD_DIR/.nojekyll"
           cp "$BUILD_DIR/index.html" "$BUILD_DIR/404.html"
 
-          echo "Fichiers prêts :"
+          echo "Contenu final :"
           ls -la "$BUILD_DIR"
 
           echo "BUILD_DIR=$BUILD_DIR" >> "$GITHUB_ENV"
 
-      - name: Setup Pages
+      - name: Configurer GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Télécharger l'application
         uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ env.BUILD_DIR }}
@@ -80,6 +78,6 @@ jobs:
     needs: build
 
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Déployer sur GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
