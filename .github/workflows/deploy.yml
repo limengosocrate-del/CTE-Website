@@ -12,46 +12,63 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: angularfire-start
-
     steps:
-      - name: Récupérer le code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Installer Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: angularfire-start/package-lock.json
 
-      - name: Installer les dépendances
+      - name: Install dependencies
+        working-directory: angularfire-start
         run: npm ci
 
-      - name: Compiler l'application Angular
+      - name: Build Angular
+        working-directory: angularfire-start
         run: npm run build -- --base-href=/CTE-Website/
 
-      - name: Configurer GitHub Pages
+      - name: Find Angular build output
+        run: |
+          echo "Contenu de angularfire-start/dist :"
+          find angularfire-start/dist -maxdepth 3 -type f | head -100
+
+      - name: Prepare GitHub Pages
+        run: |
+          BUILD_DIR=$(find angularfire-start/dist -name index.html -type f | head -1 | xargs dirname)
+
+          if [ -z "$BUILD_DIR" ]; then
+            echo "ERREUR : index.html introuvable dans le dossier dist"
+            exit 1
+          fi
+
+          echo "Application trouvée dans : $BUILD_DIR"
+
+          touch "$BUILD_DIR/.nojekyll"
+          cp "$BUILD_DIR/index.html" "$BUILD_DIR/404.html"
+
+          echo "Fichiers prêts :"
+          ls -la "$BUILD_DIR"
+
+          echo "BUILD_DIR=$BUILD_DIR" >> "$GITHUB_ENV"
+
+      - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Préparer les fichiers pour GitHub Pages
-        run: |
-          touch dist/friendlychat/.nojekyll
-          cp dist/friendlychat/index.html dist/friendlychat/404.html
-
-      - name: Télécharger l'application
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: angularfire-start/dist/friendlychat
+          path: ${{ env.BUILD_DIR }}
 
   deploy:
     environment:
@@ -63,6 +80,6 @@ jobs:
     needs: build
 
     steps:
-      - name: Déployer sur GitHub Pages
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
